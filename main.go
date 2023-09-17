@@ -74,7 +74,7 @@ func getRandomApod(c *gin.Context) {
 	apodCollection := dbClient.GetDatabase("apodDB").Collection("apod")
 
 	pipeline := mongo.Pipeline{
-		{{"$sample", bson.M{"size": 1}}},
+		{{Key: "$sample", Value: bson.M{"size": 1}}},
 	}
 	cursor, _ := apodCollection.Aggregate(context.Background(), pipeline)
 
@@ -155,7 +155,7 @@ func searchApod(c *gin.Context) {
 	apodCollection := dbClient.GetDatabase("apodDB").Collection("apod")
 	pipeline := mongo.Pipeline{
 		{{
-			"$search", bson.M{
+			Key: "$search", Value: bson.M{
 				"index": "textSearch",
 				"text": bson.M{
 					"query": searchString,
