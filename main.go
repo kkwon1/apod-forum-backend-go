@@ -2,20 +2,21 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/joho/godotenv"
 	"github.com/kkwon1/apod-forum-backend/db"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var dbClient *db.MongoDBClient
+var apodCache *lru.Cache[string, Apod]
 
 func main() {
 	err := godotenv.Load()
@@ -30,26 +31,28 @@ func main() {
 		log.Fatal("Error connecting to Mongo DB")
 	}
 
-	apodCollection := dbClient.GetDatabase("apodDB").Collection("apod")
-	var result Apod
-	filter := bson.M{"date": "2023-01-22"}
-	apodCollection.FindOne(context.Background(), filter).Decode(&result)
+	// initialize LRU Cache with 3000 items
+	apodCache, _ = lru.New[string, Apod](3000)
 
-	log.Println(result)
-	// get_apod_from_nasa()
 	start_service()
 }
 
 func start_service() {
 	r := gin.Default()
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "pong",
-		})
-	})
+
+	// Single APOD
+	r.GET("/apod", getRandomApod)
+	r.GET("/apod/:date", getApod)
+
+	// Plural APOD
+	r.GET("/apods", getApodPage)
+	r.GET("/apods/:count", getRandomApods)
+	r.GET("/apods/search", searchApod)
+
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 
+// ========== APOD ==========
 type Apod struct {
 	Copyright      string `json:"copyright"`
 	PostID         string `json:"postId"`
@@ -65,42 +68,56 @@ type Apod struct {
 	CommentCount   int    `json:"commentCount"`
 }
 
-type NasaApodDAO struct {
-	Copyright      string `json:"copyright"`
-	Date           string `json:"date"`
-	Explanation    string `json:"explanation"`
-	Hdurl          string `json:"hdurl"`
-	MediaType      string `json:"media_type"`
-	ServiceVersion string `json:"service_version"`
-	Title          string `json:"title"`
-	URL            string `json:"url"`
+func getRandomApod(c *gin.Context) {
+	apodCollection := dbClient.GetDatabase("apodDB").Collection("apod")
+
+	pipeline := mongo.Pipeline{
+		{{"$sample", bson.M{"size": 1}}},
+	}
+	cursor, _ := apodCollection.Aggregate(context.Background(), pipeline)
+
+	defer cursor.Close(context.Background())
+
+	// Check if there are results
+	if cursor.Next(context.Background()) {
+		var apod Apod
+		err := cursor.Decode(&apod)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		apodCache.Add(apod.Date, apod)
+		c.JSON(http.StatusOK, apod)
+	} else {
+		fmt.Println("No random document found.")
+	}
 }
 
-// We don't actually ever need this functionality, because we have a lambda that is running once a day
-// to pull the APOD data and store in mongodb
-func get_apod_from_nasa() {
-	api_key := os.Getenv("NASA_API_KEY")
-	resp, err := http.Get(fmt.Sprintf("https://api.nasa.gov/planetary/apod?api_key=%s", api_key))
-	if err != nil {
-		log.Fatal("Failed to call NASA API")
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	var apod NasaApodDAO
-	if err := json.Unmarshal(body, &apod); err != nil {
-		log.Fatal("Cannot unmarshal JSON")
-	}
-
-	fmt.Println(PrettyPrint(apod))
+func getRandomApods(c *gin.Context) {
+	// TODO implement
 }
 
-// PrettyPrint to print struct in a readable way
-func PrettyPrint(i interface{}) string {
-	s, _ := json.MarshalIndent(i, "", "\t")
-	return string(s)
+func getApod(c *gin.Context) {
+	date := c.Param("date")
+	if apodCache.Contains(date) {
+		var apod, _ = apodCache.Get(date)
+		c.JSON(http.StatusOK, apod)
+	} else {
+		apodCollection := dbClient.GetDatabase("apodDB").Collection("apod")
+		var apod Apod
+		filter := bson.M{"date": date}
+		apodCollection.FindOne(context.Background(), filter).Decode(&apod)
+
+		apodCache.Add(date, apod)
+
+		c.JSON(http.StatusOK, apod)
+	}
+}
+
+func getApodPage(c *gin.Context) {
+	// TODO implement
+}
+
+func searchApod(c *gin.Context) {
+	// TODO implement
 }
