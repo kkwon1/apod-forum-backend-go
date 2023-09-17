@@ -116,39 +116,6 @@ func getApod(c *gin.Context) {
 	}
 }
 
-/*
-   @Override
-   public List<NasaApod> getApodPage(String offset, String limit) {
-       int offsetVal = Integer.parseInt(offset);
-       int limitVal = Integer.parseInt(limit);
-
-       LocalDate today = LocalDate.now(ZoneId.of("America/Los_Angeles"));
-
-       LocalDate endDate = today.minusDays(offsetVal);
-       LocalDate startDate = endDate.minusDays(limitVal - 1);
-
-       if (allApodInCache(startDate, endDate)) {
-           return getAllApodFromCache(startDate, endDate);
-       } else {
-           return apodDao.getApodFromTo(startDate.toString(), endDate.toString());
-       }
-   }
-*/
-
-/*
-@Override
-
-	public List<NasaApod> getApodFromTo(String startDate, String endDate) {
-	    BasicDBObject searchQuery = new BasicDBObject();
-	    searchQuery.append("date", new BasicDBObject()
-	            .append("$gte", startDate)
-	            .append("$lte", endDate));
-
-	    MongoCursor<Document> cursor = apodCollection.find(searchQuery).cursor();
-
-	    return buildResults(cursor);
-	}
-*/
 func getApodPage(c *gin.Context) {
 	offset, _ := strconv.Atoi(c.Query("offset"))
 	limit, _ := strconv.Atoi(c.Query("limit"))
@@ -184,5 +151,34 @@ func getApodPage(c *gin.Context) {
 }
 
 func searchApod(c *gin.Context) {
-	// TODO implement
+	searchString := c.Query("searchString")
+	apodCollection := dbClient.GetDatabase("apodDB").Collection("apod")
+	pipeline := mongo.Pipeline{
+		{{
+			"$search", bson.M{
+				"index": "textSearch",
+				"text": bson.M{
+					"query": searchString,
+					"path": bson.M{
+						"wildcard": "*",
+					},
+				},
+			},
+		}},
+	}
+	cursor, _ := apodCollection.Aggregate(context.Background(), pipeline)
+
+	defer cursor.Close(context.Background())
+
+	// Process the results
+	var results []Apod
+	for cursor.Next(context.Background()) {
+		var apod Apod
+		if err := cursor.Decode(&apod); err != nil {
+			log.Fatal("Failed to decode APOD")
+		}
+		results = append(results, apod)
+	}
+
+	c.JSON(http.StatusOK, results)
 }
