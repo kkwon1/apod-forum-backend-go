@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -114,8 +116,71 @@ func getApod(c *gin.Context) {
 	}
 }
 
+/*
+   @Override
+   public List<NasaApod> getApodPage(String offset, String limit) {
+       int offsetVal = Integer.parseInt(offset);
+       int limitVal = Integer.parseInt(limit);
+
+       LocalDate today = LocalDate.now(ZoneId.of("America/Los_Angeles"));
+
+       LocalDate endDate = today.minusDays(offsetVal);
+       LocalDate startDate = endDate.minusDays(limitVal - 1);
+
+       if (allApodInCache(startDate, endDate)) {
+           return getAllApodFromCache(startDate, endDate);
+       } else {
+           return apodDao.getApodFromTo(startDate.toString(), endDate.toString());
+       }
+   }
+*/
+
+/*
+@Override
+
+	public List<NasaApod> getApodFromTo(String startDate, String endDate) {
+	    BasicDBObject searchQuery = new BasicDBObject();
+	    searchQuery.append("date", new BasicDBObject()
+	            .append("$gte", startDate)
+	            .append("$lte", endDate));
+
+	    MongoCursor<Document> cursor = apodCollection.find(searchQuery).cursor();
+
+	    return buildResults(cursor);
+	}
+*/
 func getApodPage(c *gin.Context) {
-	// TODO implement
+	offset, _ := strconv.Atoi(c.Query("offset"))
+	limit, _ := strconv.Atoi(c.Query("limit"))
+
+	today := time.Now()
+	endDate := today.AddDate(0, 0, (-1 * offset))
+	startDate := endDate.AddDate(0, 0, (-1 * (limit - 1)))
+
+	apodCollection := dbClient.GetDatabase("apodDB").Collection("apod")
+	filter := bson.M{
+		"date": bson.M{
+			"$gte": startDate.Format("2006-01-02"),
+			"$lte": endDate.Format("2006-01-02"),
+		},
+	}
+	cursor, err := apodCollection.Find(context.Background(), filter)
+	if err != nil {
+		log.Fatal("Failed to read apod page")
+	}
+	defer cursor.Close(context.Background())
+
+	// Process the results
+	var results []Apod
+	for cursor.Next(context.Background()) {
+		var apod Apod
+		if err := cursor.Decode(&apod); err != nil {
+			log.Fatal("Failed to decode APOD")
+		}
+		results = append(results, apod)
+	}
+
+	c.JSON(http.StatusOK, results)
 }
 
 func searchApod(c *gin.Context) {
