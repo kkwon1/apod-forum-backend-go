@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -31,6 +32,17 @@ func start_service() {
   r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 
+type NasaApodDAO struct {
+	Copyright      string `json:"copyright"`
+	Date           string `json:"date"`
+	Explanation    string `json:"explanation"`
+	Hdurl          string `json:"hdurl"`
+	MediaType      string `json:"media_type"`
+	ServiceVersion string `json:"service_version"`
+	Title          string `json:"title"`
+	URL            string `json:"url"`
+}
+
 func get_apod_from_nasa() {
 	api_key := os.Getenv("NASA_API_KEY")
 	resp, err := http.Get(fmt.Sprintf("https://api.nasa.gov/planetary/apod?api_key=%s", api_key))
@@ -44,5 +56,16 @@ func get_apod_from_nasa() {
 		log.Fatalln(err)
 	}
 
-	fmt.Println(string(body))
+	var apod NasaApodDAO
+	if err := json.Unmarshal(body, &apod); err != nil {
+		log.Fatal("Cannot unmarshal JSON")
+	}
+
+	fmt.Println(PrettyPrint(apod))
+}
+
+// PrettyPrint to print struct in a readable way
+func PrettyPrint(i interface{}) string {
+	s, _ := json.MarshalIndent(i, "", "\t")
+	return string(s)
 }
