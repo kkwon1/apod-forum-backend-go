@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/joho/godotenv"
@@ -41,15 +42,19 @@ func main() {
 
 func start_service() {
 	r := gin.Default()
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"http://localhost:3000"}
+	r.Use(cors.New(config))
 
-	// Single APOD
-	r.GET("/apod", getRandomApod)
+	// APOD
+	r.GET("/apod/random", getRandomApod)
 	r.GET("/apod/:date", getApod)
-
-	// Plural APOD
 	r.GET("/apods", getApodPage)
 	r.GET("/apods/:count", getRandomApods)
 	r.GET("/apods/search", searchApod)
+
+	// Posts
+	r.GET("/posts/:id", getPost)
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
@@ -181,4 +186,34 @@ func searchApod(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, results)
+}
+
+// ==================== POSTS ==================
+type ApodPost struct {
+	NasaApod Apod `json:"nasaApod"`
+}
+
+func getPost(c *gin.Context) {
+	date := c.Param("id")
+	if apodCache.Contains(date) {
+		var apod, _ = apodCache.Get(date)
+
+		var post ApodPost = ApodPost{
+			NasaApod: apod,
+		}
+
+		c.JSON(http.StatusOK, post)
+	} else {
+		apodCollection := dbClient.GetDatabase("apodDB").Collection("apod")
+		var apod Apod
+		filter := bson.M{"date": date}
+		apodCollection.FindOne(context.Background(), filter).Decode(&apod)
+		apodCache.Add(date, apod)
+
+		var post ApodPost = ApodPost{
+			NasaApod: apod,
+		}
+
+		c.JSON(http.StatusOK, post)
+	}
 }
