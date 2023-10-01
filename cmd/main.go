@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/joho/godotenv"
-	"github.com/kkwon1/apod-forum-backend/db"
+	"github.com/kkwon1/apod-forum-backend/internal/db"
 	"github.com/kkwon1/apod-forum-backend/internal/repositories"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"

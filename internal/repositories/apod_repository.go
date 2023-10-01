@@ -6,7 +6,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"go.mongodb.org/mongo-driver/bson"
 
-	"github.com/kkwon1/apod-forum-backend/db"
+	"github.com/kkwon1/apod-forum-backend/internal/db"
 	"github.com/kkwon1/apod-forum-backend/internal/models"
 )
 
