@@ -14,6 +14,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/joho/godotenv"
 	"github.com/kkwon1/apod-forum-backend/internal/db"
+	"github.com/kkwon1/apod-forum-backend/internal/db/dao"
 	"github.com/kkwon1/apod-forum-backend/internal/repositories"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -22,6 +23,8 @@ import (
 var dbClient *db.MongoDBClient
 var apodCache *lru.Cache[string, Apod]
 var apodRepository *repositories.ApodRepository
+
+var apodDao *dao.ApodDao
 
 func main() {
 	err := godotenv.Load()
@@ -36,7 +39,8 @@ func main() {
 		log.Fatal("Error connecting to Mongo DB")
 	}
 
-	apodRepository, _ = repositories.NewApodRepository(dbClient)
+	apodDao, _ = dao.NewApodDao(dbClient)
+	apodRepository, _ = repositories.NewApodRepository(apodDao)
 
 	// initialize LRU Cache with 3000 items
 	apodCache, _ = lru.New[string, Apod](3000)
