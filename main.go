@@ -14,12 +14,14 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/joho/godotenv"
 	"github.com/kkwon1/apod-forum-backend/db"
+	"github.com/kkwon1/apod-forum-backend/internal/repositories"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var dbClient *db.MongoDBClient
 var apodCache *lru.Cache[string, Apod]
+var apodRepository *repositories.ApodRepository
 
 func main() {
 	err := godotenv.Load()
@@ -33,6 +35,8 @@ func main() {
 	if err != nil {
 		log.Fatal("Error connecting to Mongo DB")
 	}
+
+	apodRepository, _ = repositories.NewApodRepository(dbClient)
 
 	// initialize LRU Cache with 3000 items
 	apodCache, _ = lru.New[string, Apod](3000)
@@ -55,6 +59,9 @@ func start_service() {
 
 	// Posts
 	r.GET("/posts/:id", getPost)
+
+	// Commments
+	r.GET("/comments/:id", getComment)
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
@@ -106,19 +113,8 @@ func getRandomApods(c *gin.Context) {
 
 func getApod(c *gin.Context) {
 	date := c.Param("date")
-	if apodCache.Contains(date) {
-		var apod, _ = apodCache.Get(date)
-		c.JSON(http.StatusOK, apod)
-	} else {
-		apodCollection := dbClient.GetDatabase("apodDB").Collection("apod")
-		var apod Apod
-		filter := bson.M{"date": date}
-		apodCollection.FindOne(context.Background(), filter).Decode(&apod)
-
-		apodCache.Add(date, apod)
-
-		c.JSON(http.StatusOK, apod)
-	}
+	apod := apodRepository.GetApod(date)
+	c.JSON(http.StatusOK, apod)
 }
 
 func getApodPage(c *gin.Context) {
@@ -190,7 +186,8 @@ func searchApod(c *gin.Context) {
 
 // ==================== POSTS ==================
 type ApodPost struct {
-	NasaApod Apod `json:"nasaApod"`
+	NasaApod Apod        `json:"nasaApod"`
+	Comments CommentTree `json:"comments"`
 }
 
 func getPost(c *gin.Context) {
@@ -212,8 +209,74 @@ func getPost(c *gin.Context) {
 
 		var post ApodPost = ApodPost{
 			NasaApod: apod,
+			Comments: CommentTree{
+				CommentID:    date,
+				Children:     []CommentTree{},
+				CreateDate:   "2023-09-30",
+				ModifiedDate: "2023-09-30",
+				Comment:      "Test Comment",
+				Author:       "Test Author",
+				IsDeleted:    false,
+				IsLeaf:       false,
+			},
 		}
 
 		c.JSON(http.StatusOK, post)
 	}
+}
+
+// ========================= Comments ===========================
+
+/*
+   private static final String COMMENT_PATH = "/comment";
+
+   @Autowired
+   private CommentsClient commentsClient;
+
+   @Autowired
+   private ApodClient apodClient;
+
+   @PostMapping(path = COMMENT_PATH + "/add", consumes = MediaType.APPLICATION_JSON_VALUE)
+   public Comment addComment(@RequestBody AddCommentRequest addCommentRequest) {
+       Comment comment = commentsClient.addComment(addCommentRequest);
+       apodClient.addCommentToPost(addCommentRequest.getPostId());
+       return comment;
+   }
+
+   @PostMapping(path = COMMENT_PATH + "/delete", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+   public String deleteComment(@RequestBody DeleteCommentRequest deleteCommentRequest) {
+       return commentsClient.softDeleteComment(deleteCommentRequest);
+   }
+
+   @GetMapping(path = COMMENT_PATH, params = {"post_id"})
+   public CommentTree getPostComments(@RequestParam String post_id) {
+       return commentsClient.getPostComments(post_id);
+   }
+
+	 public class CommentTree {
+    String commentId;
+    List<CommentTree> children;
+    LocalDateTime createDate;
+    LocalDateTime modifiedDate;
+    String comment;
+    String author;
+    Boolean isDeleted;
+    Boolean isLeaf;
+}
+*/
+
+type CommentTree struct {
+	CommentID    string        `json:"commentId"`
+	Children     []CommentTree `json:"children"`
+	CreateDate   string        `json:"createDate"`
+	ModifiedDate string        `json:"modifiedDate"`
+	Comment      string        `json:"comment"`
+	Author       string        `json:"author"`
+	IsDeleted    bool          `json:"isDeleted"`
+	IsLeaf       bool          `json:"isLeaf"`
+}
+
+func getComment(c *gin.Context) {
+
+	c.JSON(http.StatusOK, "hello world")
 }
