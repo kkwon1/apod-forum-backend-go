@@ -3,12 +3,17 @@ package main
 import (
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
 
+	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
+	"github.com/auth0/go-jwt-middleware/v2/jwks"
+	"github.com/auth0/go-jwt-middleware/v2/validator"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	adapter "github.com/gwatts/gin-adapter"
 	"github.com/joho/godotenv"
 	"github.com/kkwon1/apod-forum-backend/internal/db"
 	"github.com/kkwon1/apod-forum-backend/internal/db/dao"
@@ -49,8 +54,22 @@ func start_service() {
 	config.AllowOrigins = []string{"http://localhost:3000"}
 	r.Use(cors.New(config))
 
+	issuerURL, _ := url.Parse(os.Getenv("JWT_ISSUER"))
+	audience := os.Getenv("AUTH0_AUDIENCE")
+
+	provider := jwks.NewCachingProvider(issuerURL, time.Duration(5*time.Minute))
+
+	jwtValidator, _ := validator.New(provider.KeyFunc,
+		validator.RS256,
+		issuerURL.String(),
+		[]string{audience},
+	)
+
+	jwtMiddleware := jwtmiddleware.New(jwtValidator.ValidateToken)
+	verifyJwt := adapter.Wrap(jwtMiddleware.CheckJWT)
+
 	// APOD
-	r.GET("/apods/random", getRandomApod)
+	r.GET("/apods/random", verifyJwt, getRandomApod)
 	r.GET("/apods/:date", getApod)
 	r.GET("/apods", getApodPage)
 	r.GET("/apods/random/:count", getRandomApods)
