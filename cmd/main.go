@@ -26,6 +26,24 @@ var apodRepository *repositories.ApodRepository
 var apodDao *dao.ApodDao
 
 func main() {
+	initialize()
+	startService()
+}
+
+func initialize() {
+	loadEnvFile()
+	mongoConnectionString := os.Getenv("MONGO_ENDPOINT")
+
+	dbClient, err := db.NewMongoDBClient(mongoConnectionString)
+	if err != nil {
+		log.Fatal("Error connecting to Mongo DB")
+	}
+
+	apodDao, _ = dao.NewApodDao(dbClient)
+	apodRepository, _ = repositories.NewApodRepository(apodDao)
+}
+
+func loadEnvFile() {
 	curDir, err := os.Getwd()
 	if err != nil {
 		log.Println(err)
@@ -34,39 +52,15 @@ func main() {
 	if loadErr != nil {
 		log.Fatalln("can't load env file from current directory: " + curDir)
 	}
-
-	mongoConnectionString := os.Getenv("MONGO_ENDPOINT")
-
-	dbClient, err = db.NewMongoDBClient(mongoConnectionString)
-	if err != nil {
-		log.Fatal("Error connecting to Mongo DB")
-	}
-
-	apodDao, _ = dao.NewApodDao(dbClient)
-	apodRepository, _ = repositories.NewApodRepository(apodDao)
-
-	start_service()
 }
 
-func start_service() {
+func startService() {
 	r := gin.Default()
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:3000"}
+	config.AllowOrigins = []string{os.Getenv("ALLOWED_ORIGINS")}
 	r.Use(cors.New(config))
 
-	issuerURL, _ := url.Parse(os.Getenv("JWT_ISSUER"))
-	audience := os.Getenv("AUTH0_AUDIENCE")
-
-	provider := jwks.NewCachingProvider(issuerURL, time.Duration(5*time.Minute))
-
-	jwtValidator, _ := validator.New(provider.KeyFunc,
-		validator.RS256,
-		issuerURL.String(),
-		[]string{audience},
-	)
-
-	jwtMiddleware := jwtmiddleware.New(jwtValidator.ValidateToken)
-	verifyJwt := adapter.Wrap(jwtMiddleware.CheckJWT)
+	verifyJwt := getJwtVerifierMiddleware()
 
 	// APOD
 	r.GET("/apods/random", verifyJwt, getRandomApod)
@@ -82,6 +76,22 @@ func start_service() {
 	r.GET("/comments/:id", getComment)
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+}
+
+func getJwtVerifierMiddleware() gin.HandlerFunc {
+	issuerURL, _ := url.Parse(os.Getenv("JWT_ISSUER"))
+	audience := os.Getenv("AUTH0_AUDIENCE")
+
+	provider := jwks.NewCachingProvider(issuerURL, time.Duration(5*time.Minute))
+
+	jwtValidator, _ := validator.New(provider.KeyFunc,
+		validator.RS256,
+		issuerURL.String(),
+		[]string{audience},
+	)
+
+	jwtMiddleware := jwtmiddleware.New(jwtValidator.ValidateToken)
+	return adapter.Wrap(jwtMiddleware.CheckJWT)
 }
 
 // ========== APOD ==========
