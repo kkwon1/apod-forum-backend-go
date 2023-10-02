@@ -50,7 +50,7 @@ func (apodRepo *ApodRepository) SearchApods(searchString string) []models.Apod {
 }
 
 func (apodRepo *ApodRepository) GetRandomApod() models.Apod {
-	apod := apodRepo.GetRandomApod()
+	apod := apodRepo.apodDao.GetRandomApod()
 	apodCache.Add(apod.Date, apod)
 	return apod
 }

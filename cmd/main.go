@@ -21,9 +21,13 @@ var apodRepository *repositories.ApodRepository
 var apodDao *dao.ApodDao
 
 func main() {
-	err := godotenv.Load()
+	curDir, err := os.Getwd()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Println(err)
+	}
+	loadErr := godotenv.Load(curDir + "/.env")
+	if loadErr != nil {
+		log.Fatalln("can't load env file from current directory: " + curDir)
 	}
 
 	mongoConnectionString := os.Getenv("MONGO_ENDPOINT")
@@ -46,10 +50,10 @@ func start_service() {
 	r.Use(cors.New(config))
 
 	// APOD
-	r.GET("/apod/random", getRandomApod)
-	r.GET("/apod/:date", getApod)
+	r.GET("/apods/random", getRandomApod)
+	r.GET("/apods/:date", getApod)
 	r.GET("/apods", getApodPage)
-	r.GET("/apods/:count", getRandomApods)
+	r.GET("/apods/random/:count", getRandomApods)
 	r.GET("/apods/search", searchApod)
 
 	// Posts
