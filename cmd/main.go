@@ -17,13 +17,16 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kkwon1/apod-forum-backend/internal/db"
 	"github.com/kkwon1/apod-forum-backend/internal/db/dao"
+	"github.com/kkwon1/apod-forum-backend/internal/models"
 	"github.com/kkwon1/apod-forum-backend/internal/repositories"
 )
 
 var dbClient *db.MongoDBClient
 var apodRepository *repositories.ApodRepository
+var userRepository *repositories.UserRepository
 
 var apodDao *dao.ApodDao
+var postUpvoteDao *dao.PostUpvoteDao
 
 func main() {
 	initialize()
@@ -40,7 +43,9 @@ func initialize() {
 	}
 
 	apodDao, _ = dao.NewApodDao(dbClient)
+	postUpvoteDao, _ = dao.NewPostUpvoteDao(dbClient)
 	apodRepository, _ = repositories.NewApodRepository(apodDao)
+	userRepository, _ = repositories.NewUserRepository(postUpvoteDao)
 }
 
 func loadEnvFile() {
@@ -74,6 +79,9 @@ func startService() {
 
 	// Commments
 	r.GET("/comments/:id", getComment)
+
+	// Users
+	r.GET("/users/:userSub", getUser)
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
@@ -141,6 +149,21 @@ func getPost(c *gin.Context) {
 // ========================= Comments ===========================
 
 func getComment(c *gin.Context) {
-
 	c.JSON(http.StatusOK, "hello world")
+}
+
+func getUser(c *gin.Context) {
+	userSub := c.Param("userSub")
+	postIds := userRepository.GetUpvotedPostIds(userSub)
+
+	var user models.User
+	user = models.User{
+		UserSub:           userSub,
+		UserName:          "testUsername",
+		Email:             "testEmail",
+		EmailVerified:     true,
+		ProfilePictureUrl: "testProfileUrl",
+		UpvotedPostIds:    postIds,
+	}
+	c.JSON(http.StatusOK, user)
 }
