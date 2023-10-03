@@ -10,6 +10,7 @@ import (
 	"github.com/kkwon1/apod-forum-backend/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type ApodDao struct {
@@ -108,4 +109,22 @@ func (dao *ApodDao) GetRandomApod() models.Apod {
 		fmt.Println("No random document found.")
 	}
 	return apod
+}
+
+func (dao *ApodDao) IncrementUpvoteCount(postId string) {
+	apodCollection := dao.dbClient.GetDatabase("apodDB").Collection("apod")
+
+	filter := bson.M{
+		"date": postId,
+	}
+
+	update := bson.D{{Key: "$set", Value: bson.D{{Key: "upvoteCount", Value: 1}}}}
+	opts := options.Update().SetUpsert(true)
+
+	result, err := apodCollection.UpdateOne(context.Background(), filter, update, opts)
+
+	log.Print(result)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

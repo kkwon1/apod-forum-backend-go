@@ -18,6 +18,7 @@ import (
 	"github.com/kkwon1/apod-forum-backend/internal/db"
 	"github.com/kkwon1/apod-forum-backend/internal/db/dao"
 	"github.com/kkwon1/apod-forum-backend/internal/models"
+	"github.com/kkwon1/apod-forum-backend/internal/models/requests"
 	"github.com/kkwon1/apod-forum-backend/internal/repositories"
 )
 
@@ -62,6 +63,7 @@ func loadEnvFile() {
 func startService() {
 	r := gin.Default()
 	config := cors.DefaultConfig()
+	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
 	config.AllowOrigins = []string{os.Getenv("ALLOWED_ORIGINS")}
 	r.Use(cors.New(config))
 
@@ -76,6 +78,7 @@ func startService() {
 
 	// Posts
 	r.GET("/posts/:id", getPost)
+	r.POST("/posts/upvote", upvote)
 
 	// Commments
 	r.GET("/comments/:id", getComment)
@@ -145,6 +148,18 @@ func getPost(c *gin.Context) {
 	date := c.Param("id")
 	post := apodRepository.GetApodPost(date)
 	c.JSON(http.StatusOK, post)
+}
+
+func upvote(c *gin.Context) {
+	var upvoteRequest requests.UpvotePostRequest
+
+	if err := c.BindJSON(&upvoteRequest); err != nil {
+		log.Fatal(err)
+		c.JSON(http.StatusBadRequest, "")
+	}
+
+	userRepository.UpvotePost(upvoteRequest)
+	apodRepository.IncrementUpvoteCount(upvoteRequest.PostId)
 }
 
 // ========================= Comments ===========================

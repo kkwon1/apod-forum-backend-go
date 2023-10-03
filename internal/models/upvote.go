@@ -3,7 +3,7 @@ package models
 import "time"
 
 type Upvote struct {
-	PostID   string    `json:"postId"`
-	UserSub  string    `json:"userSub"`
-	DateTime time.Time `json:"dateTime"`
+	PostId   string    `json:"postId" bson:"postId"`
+	UserSub  string    `json:"userSub" bson:"userSub"`
+	Timestamp time.Time `json:"timestamp" bson:"timestamp"`
 }

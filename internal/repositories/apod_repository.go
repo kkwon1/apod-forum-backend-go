@@ -85,3 +85,8 @@ func (apodRepo *ApodRepository) GetApodPost(postId string) models.ApodPost {
 
 	return post
 }
+
+func (apodRepo *ApodRepository) IncrementUpvoteCount(postId string) {
+	apodRepo.apodDao.IncrementUpvoteCount(postId)
+	apodCache.Remove(postId)
+}

@@ -41,7 +41,7 @@ func (dao *PostUpvoteDao) GetUpvotedPostIds(userId string) []string {
 
 	var postIds []string
 	for _, upvote := range upvotes {
-		postIds = append(postIds, upvote.PostID)
+		postIds = append(postIds, upvote.PostId)
 	}
 
 	return postIds
