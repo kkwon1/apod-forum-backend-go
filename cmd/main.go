@@ -68,7 +68,7 @@ func startService() {
 	verifyJwt := getJwtVerifierMiddleware()
 
 	// APOD
-	r.GET("/apods/random", verifyJwt, getRandomApod)
+	r.GET("/apods/random", getRandomApod)
 	r.GET("/apods/:date", getApod)
 	r.GET("/apods", getApodPage)
 	r.GET("/apods/random/:count", getRandomApods)
@@ -81,11 +81,12 @@ func startService() {
 	r.GET("/comments/:id", getComment)
 
 	// Users
-	r.GET("/users/:userSub", getUser)
+	r.GET("/users/:userSub", verifyJwt, getUser)
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 
+// TODO: Verify claims and make sure you only allow the correct user
 func getJwtVerifierMiddleware() gin.HandlerFunc {
 	issuerURL, _ := url.Parse(os.Getenv("JWT_ISSUER"))
 	audience := os.Getenv("AUTH0_AUDIENCE")
