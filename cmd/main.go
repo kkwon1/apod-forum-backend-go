@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
@@ -28,6 +30,8 @@ var userRepository *repositories.UserRepository
 
 var apodDao *dao.ApodDao
 var postUpvoteDao *dao.PostUpvoteDao
+
+var astroTerms map[string]struct{}
 
 func main() {
 	initialize()
@@ -86,6 +90,9 @@ func startService() {
 	// Users
 	r.GET("/users/:userSub", verifyJwt, getUser)
 
+	// Load the Astronomy terms
+	astroTerms = loadAstroTerms()
+
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 
@@ -109,7 +116,15 @@ func getJwtVerifierMiddleware() gin.HandlerFunc {
 // ========== APOD ==========
 
 func getRandomApod(c *gin.Context) {
-	apod := apodRepository.GetRandomApod()
+	resultChan := make(chan models.Apod)
+
+	go func() {
+		apod := apodRepository.GetRandomApod()
+		apod.Tags = extractTags(apod, astroTerms)
+		resultChan <- apod
+	}()
+
+	apod := <-resultChan
 	c.JSON(http.StatusOK, apod)
 }
 
@@ -120,6 +135,7 @@ func getRandomApods(c *gin.Context) {
 func getApod(c *gin.Context) {
 	date := c.Param("date")
 	apod := apodRepository.GetApod(date)
+	apod.Tags = extractTags(apod, astroTerms)
 	c.JSON(http.StatusOK, apod)
 }
 
@@ -146,7 +162,15 @@ func searchApod(c *gin.Context) {
 
 func getPost(c *gin.Context) {
 	date := c.Param("id")
-	post := apodRepository.GetApodPost(date)
+
+	// Create a channel to receive the result
+	resultChan := make(chan models.ApodPost)
+	go func() {
+		post := apodRepository.GetApodPost(date)
+		post.NasaApod.Tags = extractTags(post.NasaApod, astroTerms)
+		resultChan <- post
+	}()
+	post := <-resultChan
 	c.JSON(http.StatusOK, post)
 }
 
@@ -182,4 +206,45 @@ func getUser(c *gin.Context) {
 		UpvotedPostIds:    postIds,
 	}
 	c.JSON(http.StatusOK, user)
+}
+
+
+func loadAstroTerms() (map[string]struct{}) {
+	file, err := os.Open("internal/const/astro_terms.txt")
+    if err != nil {
+        log.Fatalf("failed to open file: %s", err)
+    }
+    defer file.Close()
+
+    set := make(map[string]struct{})
+    scanner := bufio.NewScanner(file)
+    for scanner.Scan() {
+        set[strings.ToLower(scanner.Text())] = struct{}{}
+    }
+
+    if err := scanner.Err(); err != nil {
+        log.Fatalf("failed to scan file: %s", err)
+    }
+
+    // Print the set
+    return set
+}
+
+func extractTags(apod models.Apod, astro_terms map[string]struct{}) []string {
+	words := strings.Fields(strings.ToLower(apod.Explanation))
+	matches := make(map[string]struct{})
+	for _, word := range words {
+			if _, ok := astro_terms[word]; ok {
+					matches[word] = struct{}{}
+			}
+	}
+	return setToList(matches)
+}
+
+func setToList(set map[string]struct{}) []string {
+	list := make([]string, 0, len(set))
+	for key := range set {
+			list = append(list, key)
+	}
+	return list
 }
