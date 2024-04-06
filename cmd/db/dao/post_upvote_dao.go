@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/kkwon1/apod-forum-backend/internal/db"
-	"github.com/kkwon1/apod-forum-backend/internal/models"
+	"github.com/kkwon1/apod-forum-backend/cmd/db"
+	"github.com/kkwon1/apod-forum-backend/cmd/models"
 	"go.mongodb.org/mongo-driver/bson"
 )
 

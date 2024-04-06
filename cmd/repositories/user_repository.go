@@ -3,9 +3,9 @@ package repositories
 import (
 	"time"
 
-	"github.com/kkwon1/apod-forum-backend/internal/db/dao"
-	"github.com/kkwon1/apod-forum-backend/internal/models"
-	"github.com/kkwon1/apod-forum-backend/internal/models/requests"
+	"github.com/kkwon1/apod-forum-backend/cmd/db/dao"
+	"github.com/kkwon1/apod-forum-backend/cmd/models"
+	"github.com/kkwon1/apod-forum-backend/cmd/models/requests"
 )
 
 type UserRepository struct {

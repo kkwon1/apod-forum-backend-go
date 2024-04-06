@@ -17,14 +17,13 @@ import (
 	"github.com/gin-gonic/gin"
 	adapter "github.com/gwatts/gin-adapter"
 	"github.com/joho/godotenv"
-	"github.com/kkwon1/apod-forum-backend/internal/db"
-	"github.com/kkwon1/apod-forum-backend/internal/db/dao"
-	"github.com/kkwon1/apod-forum-backend/internal/models"
-	"github.com/kkwon1/apod-forum-backend/internal/models/requests"
-	"github.com/kkwon1/apod-forum-backend/internal/repositories"
+	"github.com/kkwon1/apod-forum-backend/cmd/db"
+	"github.com/kkwon1/apod-forum-backend/cmd/db/dao"
+	"github.com/kkwon1/apod-forum-backend/cmd/models"
+	"github.com/kkwon1/apod-forum-backend/cmd/models/requests"
+	"github.com/kkwon1/apod-forum-backend/cmd/repositories"
 )
 
-var dbClient *db.MongoDBClient
 var apodRepository *repositories.ApodRepository
 var userRepository *repositories.UserRepository
 

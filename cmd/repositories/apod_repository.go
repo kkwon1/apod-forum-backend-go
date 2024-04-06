@@ -5,8 +5,8 @@ import (
 
 	lru "github.com/hashicorp/golang-lru/v2"
 
-	"github.com/kkwon1/apod-forum-backend/internal/db/dao"
-	"github.com/kkwon1/apod-forum-backend/internal/models"
+	"github.com/kkwon1/apod-forum-backend/cmd/db/dao"
+	"github.com/kkwon1/apod-forum-backend/cmd/models"
 )
 
 var apodCache *lru.Cache[string, models.Apod]
