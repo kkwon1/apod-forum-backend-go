@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
@@ -17,11 +15,12 @@ import (
 	"github.com/gin-gonic/gin"
 	adapter "github.com/gwatts/gin-adapter"
 	"github.com/joho/godotenv"
+	"github.com/kkwon1/apod-forum-backend/cmd/controllers"
 	"github.com/kkwon1/apod-forum-backend/cmd/db"
 	"github.com/kkwon1/apod-forum-backend/cmd/db/dao"
 	"github.com/kkwon1/apod-forum-backend/cmd/models"
-	"github.com/kkwon1/apod-forum-backend/cmd/models/requests"
 	"github.com/kkwon1/apod-forum-backend/cmd/repositories"
+	"github.com/kkwon1/apod-forum-backend/cmd/utils"
 )
 
 var apodRepository *repositories.ApodRepository
@@ -29,8 +28,6 @@ var userRepository *repositories.UserRepository
 
 var apodDao *dao.ApodDao
 var postUpvoteDao *dao.PostUpvoteDao
-
-var astroTerms map[string]struct{}
 
 func main() {
 	initialize()
@@ -79,18 +76,14 @@ func startService() {
 	r.GET("/apods/random/:count", getRandomApods)
 	r.GET("/apods/search", searchApod)
 
-	// Posts
-	r.GET("/posts/:id", getPost)
-	r.POST("/posts/upvote", upvote)
-
 	// Commments
 	r.GET("/comments/:id", getComment)
 
 	// Users
 	r.GET("/users/:userSub", verifyJwt, getUser)
 
-	// Load the Astronomy terms
-	astroTerms = loadAstroTerms()
+	postController, _ := controllers.NewPostController(r, apodRepository, userRepository)
+	postController.RegisterRoutes();
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
@@ -119,7 +112,7 @@ func getRandomApod(c *gin.Context) {
 
 	go func() {
 		apod := apodRepository.GetRandomApod()
-		apod.Tags = extractTags(apod, astroTerms)
+		apod.Tags = utils.ExtractTags(apod)
 		resultChan <- apod
 	}()
 
@@ -134,7 +127,7 @@ func getRandomApods(c *gin.Context) {
 func getApod(c *gin.Context) {
 	date := c.Param("date")
 	apod := apodRepository.GetApod(date)
-	apod.Tags = extractTags(apod, astroTerms)
+	apod.Tags = utils.ExtractTags(apod)
 	c.JSON(http.StatusOK, apod)
 }
 
@@ -157,34 +150,6 @@ func searchApod(c *gin.Context) {
 	c.JSON(http.StatusOK, apods)
 }
 
-// ==================== POSTS ==================
-
-func getPost(c *gin.Context) {
-	date := c.Param("id")
-
-	// Create a channel to receive the result
-	resultChan := make(chan models.ApodPost)
-	go func() {
-		post := apodRepository.GetApodPost(date)
-		post.NasaApod.Tags = extractTags(post.NasaApod, astroTerms)
-		resultChan <- post
-	}()
-	post := <-resultChan
-	c.JSON(http.StatusOK, post)
-}
-
-func upvote(c *gin.Context) {
-	var upvoteRequest requests.UpvotePostRequest
-
-	if err := c.BindJSON(&upvoteRequest); err != nil {
-		log.Fatal(err)
-		c.JSON(http.StatusBadRequest, "")
-	}
-
-	userRepository.UpvotePost(upvoteRequest)
-	apodRepository.IncrementUpvoteCount(upvoteRequest.PostId)
-}
-
 // ========================= Comments ===========================
 
 func getComment(c *gin.Context) {
@@ -205,45 +170,4 @@ func getUser(c *gin.Context) {
 		UpvotedPostIds:    postIds,
 	}
 	c.JSON(http.StatusOK, user)
-}
-
-
-func loadAstroTerms() (map[string]struct{}) {
-	file, err := os.Open("internal/const/astro_terms.txt")
-    if err != nil {
-        log.Fatalf("failed to open file: %s", err)
-    }
-    defer file.Close()
-
-    set := make(map[string]struct{})
-    scanner := bufio.NewScanner(file)
-    for scanner.Scan() {
-        set[strings.ToLower(scanner.Text())] = struct{}{}
-    }
-
-    if err := scanner.Err(); err != nil {
-        log.Fatalf("failed to scan file: %s", err)
-    }
-
-    // Print the set
-    return set
-}
-
-func extractTags(apod models.Apod, astro_terms map[string]struct{}) []string {
-	words := strings.Fields(strings.ToLower(apod.Explanation))
-	matches := make(map[string]struct{})
-	for _, word := range words {
-			if _, ok := astro_terms[word]; ok {
-					matches[word] = struct{}{}
-			}
-	}
-	return setToList(matches)
-}
-
-func setToList(set map[string]struct{}) []string {
-	list := make([]string, 0, len(set))
-	for key := range set {
-			list = append(list, key)
-	}
-	return list
 }
