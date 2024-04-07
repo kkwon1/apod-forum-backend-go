@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"time"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
@@ -20,7 +19,6 @@ import (
 	"github.com/kkwon1/apod-forum-backend/cmd/db/dao"
 	"github.com/kkwon1/apod-forum-backend/cmd/models"
 	"github.com/kkwon1/apod-forum-backend/cmd/repositories"
-	"github.com/kkwon1/apod-forum-backend/cmd/utils"
 )
 
 var apodRepository *repositories.ApodRepository
@@ -70,11 +68,8 @@ func startService() {
 	verifyJwt := getJwtVerifierMiddleware()
 
 	// APOD
-	r.GET("/apods/random", getRandomApod)
-	r.GET("/apods/:date", getApod)
-	r.GET("/apods", getApodPage)
-	r.GET("/apods/random/:count", getRandomApods)
-	r.GET("/apods/search", searchApod)
+	apodController, _ := controllers.NewApodController(r, apodRepository)
+	apodController.RegisterRoutes()
 
 	// Commments
 	r.GET("/comments/:id", getComment)
@@ -107,48 +102,7 @@ func getJwtVerifierMiddleware() gin.HandlerFunc {
 
 // ========== APOD ==========
 
-func getRandomApod(c *gin.Context) {
-	resultChan := make(chan models.Apod)
 
-	go func() {
-		apod := apodRepository.GetRandomApod()
-		apod.Tags = utils.ExtractTags(apod)
-		resultChan <- apod
-	}()
-
-	apod := <-resultChan
-	c.JSON(http.StatusOK, apod)
-}
-
-func getRandomApods(c *gin.Context) {
-	// TODO implement
-}
-
-func getApod(c *gin.Context) {
-	date := c.Param("date")
-	apod := apodRepository.GetApod(date)
-	apod.Tags = utils.ExtractTags(apod)
-	c.JSON(http.StatusOK, apod)
-}
-
-func getApodPage(c *gin.Context) {
-	offset, _ := strconv.Atoi(c.Query("offset"))
-	limit, _ := strconv.Atoi(c.Query("limit"))
-
-	today := time.Now()
-	endDate := today.AddDate(0, 0, (-1 * offset))
-	startDate := endDate.AddDate(0, 0, (-1 * (limit - 1)))
-
-	apods := apodRepository.GetApodsBetweenDates(startDate, endDate)
-	c.JSON(http.StatusOK, apods)
-}
-
-func searchApod(c *gin.Context) {
-	searchString := c.Query("searchString")
-	apods := apodRepository.SearchApods(searchString)
-
-	c.JSON(http.StatusOK, apods)
-}
 
 // ========================= Comments ===========================
 

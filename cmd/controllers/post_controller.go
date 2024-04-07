@@ -23,10 +23,8 @@ func NewPostController(router *gin.Engine, apodRepository *repositories.ApodRepo
 
 func (pc *PostController) RegisterRoutes() {
 	postGroup := pc.router.Group("/posts")
-	{
-		postGroup.GET("/:id", pc.getPost)
-		postGroup.POST("/upvote", pc.upvote)
-	}
+	postGroup.GET("/:id", pc.getPost)
+	postGroup.POST("/upvote", pc.upvote)
 }
 
 func (pc *PostController) getPost(c *gin.Context) {
