@@ -68,7 +68,15 @@ func loadEnvFile() {
 	if err != nil {
 		log.Println(err)
 	}
-	loadErr := godotenv.Load(curDir + "/.env")
+
+	envFilePath := curDir + "/.env"
+	_, err = os.Stat(envFilePath)
+	if os.IsNotExist(err) {
+		log.Println(".env file does not exist. Using environment variables on host")
+		return
+	}
+
+	loadErr := godotenv.Load(envFilePath)
 	if loadErr != nil {
 		log.Fatalln("can't load env file from current directory: " + curDir)
 	}
