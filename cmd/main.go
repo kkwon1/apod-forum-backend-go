@@ -47,6 +47,8 @@ func startService() {
 	config.AllowOrigins = []string{os.Getenv("ALLOWED_ORIGINS")}
 	r.Use(cors.New(config))
 
+	r.GET("/", getComment)
+
 	// APOD
 	apodController, _ := controllers.NewApodController(r, apodRepository)
 	userController, _ := controllers.NewUserController(r, userRepository)
