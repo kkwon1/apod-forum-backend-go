@@ -4,15 +4,25 @@ import (
 	"bufio"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/kkwon1/apod-forum-backend/cmd/models"
 )
 
-var astroTerms map[string]struct{} = loadAstroTerms()
+var astroTerms map[string]struct{}
 
-func loadAstroTerms() (map[string]struct{}) {
-	file, err := os.Open("internal/const/astro_terms.txt")
+func InitTags() {
+	absPath, _ := filepath.Abs("internal/const/astro_terms.txt")
+	astroTerms = loadAstroTerms(absPath)
+}
+
+func InitTagsWithFilePath(filePath string) {
+	astroTerms = loadAstroTerms(filePath)
+}
+
+func loadAstroTerms(filePath string) (map[string]struct{}) {
+	file, err := os.Open(filePath)
     if err != nil {
         log.Fatalf("failed to open file: %s", err)
     }

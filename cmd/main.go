@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 
 	"github.com/gin-contrib/cors"
@@ -12,6 +13,7 @@ import (
 	"github.com/kkwon1/apod-forum-backend/cmd/db"
 	"github.com/kkwon1/apod-forum-backend/cmd/db/dao"
 	"github.com/kkwon1/apod-forum-backend/cmd/repositories"
+	"github.com/kkwon1/apod-forum-backend/cmd/utils"
 )
 
 var apodRepository *repositories.ApodRepository
@@ -38,6 +40,12 @@ func initialize() {
 	postUpvoteDao, _ = dao.NewPostUpvoteDao(dbClient)
 	apodRepository, _ = repositories.NewApodRepository(apodDao)
 	userRepository, _ = repositories.NewUserRepository(postUpvoteDao)
+	utils.InitTags();
+
+	// profiler
+	go func() {
+		http.ListenAndServe("localhost:6060", nil)
+	}()
 }
 
 func startService() {
