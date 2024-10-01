@@ -4,6 +4,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/kkwon1/apod-forum-backend/cmd/domain"
+
 	lru "github.com/hashicorp/golang-lru/v2"
 
 	"github.com/kkwon1/apod-forum-backend/cmd/db/dao"
@@ -99,40 +101,9 @@ func (apodRepo *ApodRepository) GetCommentsForPost(postId string) []*models.Comm
 		log.Fatal(err)
 	}
 
-	return convertToCommentNodes(results)
+	return domain.ConvertToCommentNodes(results)
 }
 
-func convertToCommentNodes(comments []models.Comment) []*models.CommentNode {
-	commentMap := make(map[string]*models.CommentNode)
-	for _, comment := range comments {
-		commentNode := &models.CommentNode{
-			CommentID:    comment.CommentID,
-			Author:       comment.Author,
-			Comment:      comment.Comment,
-			Children:     []*models.CommentNode{},
-		}
-		commentMap[comment.CommentID] = commentNode
-	}
-
-	pidToCidMap := make(map[string][]string)
-	for _, comment := range comments {
-		parentID := comment.ParentID
-		pidToCidMap[parentID] = append(pidToCidMap[parentID], comment.CommentID)
-	}
-
-	result := []*models.CommentNode{}
-
-	for parentID, childIDs := range pidToCidMap {
-		// No parent ID, so we attach as root children
-		for _, childID := range childIDs {
-			if (parentID == "") {
-				result = append(result, commentMap[childID])
-			} else {
-				parentNode := commentMap[parentID]
-				parentNode.Children = append(parentNode.Children, commentMap[childID])
-			}
-		}
-	}
-
-	return result
+func (apodRepo *ApodRepository) AddCommentForPost(comment models.Comment) {
+	apodRepo.commentDao.AddCommentForPost(comment)
 }

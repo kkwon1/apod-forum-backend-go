@@ -37,3 +37,12 @@ func (dao *CommentDao) GetCommentsByPostId(postId string) ([]models.Comment, err
 
 	return comments, nil
 }
+
+func (dao *CommentDao) AddCommentForPost(comment models.Comment) {
+	commentsCollection := dao.dbClient.GetDatabase("apodDB").Collection("comments")
+	_, err := commentsCollection.InsertOne(context.Background(), comment)
+
+	if err != nil {
+		log.Fatal("Failed to insert comment into collection", err)
+	}
+}
