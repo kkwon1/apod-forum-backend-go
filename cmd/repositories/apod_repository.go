@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"log"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -13,13 +14,14 @@ var apodCache *lru.Cache[string, models.Apod]
 
 type ApodRepository struct {
 	apodDao *dao.ApodDao
+	commentDao *dao.CommentDao
 }
 
-func NewApodRepository(apodDao *dao.ApodDao) (*ApodRepository, error) {
+func NewApodRepository(apodDao *dao.ApodDao, commentDao *dao.CommentDao) (*ApodRepository, error) {
 	// initialize LRU Cache with 3000 items
 	apodCache, _ = lru.New[string, models.Apod](3000)
 
-	return &ApodRepository{apodDao: apodDao}, nil
+	return &ApodRepository{apodDao: apodDao, commentDao: commentDao}, nil
 }
 
 func (apodRepo *ApodRepository) GetApod(date string) models.Apod {
@@ -89,4 +91,48 @@ func (apodRepo *ApodRepository) GetApodPost(postId string) models.ApodPost {
 func (apodRepo *ApodRepository) IncrementUpvoteCount(postId string) {
 	apodRepo.apodDao.IncrementUpvoteCount(postId)
 	apodCache.Remove(postId)
+}
+
+func (apodRepo *ApodRepository) GetCommentsForPost(postId string) []*models.CommentNode {
+	results, err := apodRepo.commentDao.GetCommentsByPostId(postId)
+	if (err != nil) {
+		log.Fatal(err)
+	}
+
+	return convertToCommentNodes(results)
+}
+
+func convertToCommentNodes(comments []models.Comment) []*models.CommentNode {
+	commentMap := make(map[string]*models.CommentNode)
+	for _, comment := range comments {
+		commentNode := &models.CommentNode{
+			CommentID:    comment.CommentID,
+			Author:       comment.Author,
+			Comment:      comment.Comment,
+			Children:     []*models.CommentNode{},
+		}
+		commentMap[comment.CommentID] = commentNode
+	}
+
+	pidToCidMap := make(map[string][]string)
+	for _, comment := range comments {
+		parentID := comment.ParentID
+		pidToCidMap[parentID] = append(pidToCidMap[parentID], comment.CommentID)
+	}
+
+	result := []*models.CommentNode{}
+
+	for parentID, childIDs := range pidToCidMap {
+		// No parent ID, so we attach as root children
+		for _, childID := range childIDs {
+			if (parentID == "") {
+				result = append(result, commentMap[childID])
+			} else {
+				parentNode := commentMap[parentID]
+				parentNode.Children = append(parentNode.Children, commentMap[childID])
+			}
+		}
+	}
+
+	return result
 }

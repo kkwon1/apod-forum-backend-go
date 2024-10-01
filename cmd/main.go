@@ -38,7 +38,9 @@ func initialize() {
 
 	apodDao, _ = dao.NewApodDao(dbClient)
 	postUpvoteDao, _ = dao.NewPostUpvoteDao(dbClient)
-	apodRepository, _ = repositories.NewApodRepository(apodDao)
+	commentDao, _ := dao.NewCommentDao(dbClient)
+
+	apodRepository, _ = repositories.NewApodRepository(apodDao, commentDao)
 	userRepository, _ = repositories.NewUserRepository(postUpvoteDao)
 	utils.InitTags();
 
@@ -61,14 +63,14 @@ func startService() {
 	apodController, _ := controllers.NewApodController(r, apodRepository)
 	userController, _ := controllers.NewUserController(r, userRepository)
 	postController, _ := controllers.NewPostController(r, apodRepository, userRepository)
+	commentsController, _ := controllers.NewCommentController(r, apodRepository)
 
 	apodController.RegisterRoutes()
 	userController.RegisterRoutes()
-	postController.RegisterRoutes();
+	postController.RegisterRoutes()
+	commentsController.RegisterRoutes()
 
-	r.GET("/comments/:id", getComment)
-
-	r.Run()
+	r.Run("localhost:8080")
 }
 
 func loadEnvFile() {
